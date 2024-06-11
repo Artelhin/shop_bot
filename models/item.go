@@ -9,4 +9,5 @@ type Item struct {
 	Name        string         `json:"name"`
 	Description sql.NullString `json:"description"`
 	CategoryID  int64          `json:"category_id"`
+	Image       []byte         `json:"image"`
 }

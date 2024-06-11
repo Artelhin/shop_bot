@@ -9,7 +9,7 @@ create table users (
 );
 
 create table categories (
-                            id int primary key,
+                            id serial primary key,
                             created_at timestamp,
                             updated_at timestamp,
                             deleted_at timestamp,
@@ -18,7 +18,7 @@ create table categories (
 );
 
 create table items (
-                       id int primary key,
+                       id serial primary key,
                        created_at timestamp,
                        updated_at timestamp,
                        deleted_at timestamp,
@@ -29,7 +29,7 @@ create table items (
 );
 
 create table storages (
-                          id int primary key,
+                          id serial primary key,
                           created_at timestamp,
                           updated_at timestamp,
                           deleted_at timestamp,
@@ -41,4 +41,15 @@ create table item_to_storage (
                                  item_id int not null,
                                  storage_id int not null,
                                  count int not null
+);
+
+create table orders (
+    id serial primary key,
+    created_at timestamp,
+    updated_at timestamp,
+    deleted_at timestamp,
+    user_id bigint,
+    item_id int,
+    storage_id int,
+    active bool
 );

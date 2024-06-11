@@ -1,6 +1,7 @@
 package storage
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
 	_ "github.com/lib/pq"
@@ -79,4 +80,265 @@ func (s *Storage) UpdateUser(user *models.User) error {
 		return fmt.Errorf("can't update user: %s", err)
 	}
 	return nil
+}
+
+func (s *Storage) GetTopLevelCategories() ([]models.Category, error) {
+	rows, err := s.db.Query(`select * from categories where parent_id is null and deleted_at is null`)
+	if err != nil {
+		return nil, fmt.Errorf("can't select from categories: %s", err)
+	}
+	defer rows.Close()
+
+	categories := make([]models.Category, 0)
+	for rows.Next() {
+		category := models.Category{}
+		err = rows.Scan(
+			&category.ID,
+			&category.CreatedAt,
+			&category.UpdatedAt,
+			&category.DeletedAt,
+			&category.ParentID,
+			&category.Name)
+		if err != nil {
+			return nil, fmt.Errorf("can't convert from rows: %s", err)
+		}
+		categories = append(categories, category)
+	}
+	if len(categories) == 0 {
+		return nil, nil
+	}
+	return categories, nil
+}
+
+func (s *Storage) GetSubcategoriesByCategoryID(id int64) ([]models.Category, error) {
+	rows, err := s.db.Query(`select * from categories where parent_id = $1 and deleted_at is null`, id)
+	if err != nil {
+		return nil, fmt.Errorf("can't select from categories: %s", err)
+	}
+	defer rows.Close()
+
+	categories := make([]models.Category, 0)
+	for rows.Next() {
+		category := models.Category{}
+		err = rows.Scan(
+			&category.ID,
+			&category.CreatedAt,
+			&category.UpdatedAt,
+			&category.DeletedAt,
+			&category.ParentID,
+			&category.Name)
+		if err != nil {
+			return nil, fmt.Errorf("can't convert from rows: %s", err)
+		}
+		categories = append(categories, category)
+	}
+	return categories, nil
+}
+
+func (s *Storage) GetCategoryByID(id int64) (*models.Category, error) {
+	rows, err := s.db.Query(`select * from categories where id = $1`, id)
+	if err != nil {
+		return nil, fmt.Errorf("can't select from categories: %s", err)
+	}
+	defer rows.Close()
+
+	categories := make([]models.Category, 0)
+	for rows.Next() {
+		category := models.Category{}
+		err = rows.Scan(
+			&category.ID,
+			&category.CreatedAt,
+			&category.UpdatedAt,
+			&category.DeletedAt,
+			&category.ParentID,
+			&category.Name)
+		if err != nil {
+			return nil, fmt.Errorf("can't convert from rows: %s", err)
+		}
+		categories = append(categories, category)
+	}
+	if len(categories) == 0 {
+		return nil, nil
+	}
+	return &(categories[0]), nil
+}
+
+func (s *Storage) GetItemsByCategoryID(id int64) ([]models.Item, error) {
+	rows, err := s.db.Query(`select * from items where items.category_id = $1 and deleted_at is null`, id)
+	if err != nil {
+		return nil, fmt.Errorf("can't select from categories: %s", err)
+	}
+	defer rows.Close()
+
+	items := make([]models.Item, 0)
+	for rows.Next() {
+		item := models.Item{}
+		err = rows.Scan(
+			&item.ID,
+			&item.CreatedAt,
+			&item.UpdatedAt,
+			&item.DeletedAt,
+			&item.Name,
+			&item.Description,
+			&item.CategoryID,
+			&item.Image)
+		if err != nil {
+			return nil, fmt.Errorf("can't convert from rows: %s", err)
+		}
+		items = append(items, item)
+	}
+	return items, nil
+}
+
+func (s *Storage) GetItemByID(id int64) (*models.Item, error) {
+	rows, err := s.db.Query(`select * from items where id = $1`, id)
+	if err != nil {
+		return nil, fmt.Errorf("can't select from categories: %s", err)
+	}
+	defer rows.Close()
+
+	items := make([]models.Item, 0)
+	for rows.Next() {
+		item := models.Item{}
+		err = rows.Scan(
+			&item.ID,
+			&item.CreatedAt,
+			&item.UpdatedAt,
+			&item.DeletedAt,
+			&item.Name,
+			&item.Description,
+			&item.CategoryID,
+			&item.Image)
+		if err != nil {
+			return nil, fmt.Errorf("can't convert from rows: %s", err)
+		}
+		items = append(items, item)
+	}
+	if len(items) == 0 {
+		return nil, nil
+	}
+	return &(items[0]), nil
+}
+
+func (s *Storage) GetItemsInStoresByItemID(id int64) ([]models.ItemToStorage, error) {
+	rows, err := s.db.Query(`select * from item_to_storage where item_id = $1`, id)
+	if err != nil {
+		return nil, fmt.Errorf("can't select from item_to_storage: %s", err)
+	}
+	defer rows.Close()
+
+	items := make([]models.ItemToStorage, 0)
+	for rows.Next() {
+		item := models.ItemToStorage{}
+		err = rows.Scan(
+			&item.ItemID,
+			&item.StorageID,
+			&item.Count)
+		if err != nil {
+			return nil, fmt.Errorf("can't convert from rows: %s", err)
+		}
+		items = append(items, item)
+	}
+	if len(items) == 0 {
+		return nil, nil
+	}
+	return items, nil
+}
+
+func (s *Storage) GetStoragesForItemID(id int64) ([]models.Storage, error) {
+	rows, err := s.db.Query(`select s.* from storages s left join item_to_storage its on its.storage_id = s.id where its.item_id = $1 and its.count > 0`, id)
+	if err != nil {
+		return nil, fmt.Errorf("can't select from item_to_storage: %s", err)
+	}
+	defer rows.Close()
+
+	storages := make([]models.Storage, 0)
+	for rows.Next() {
+		storage := models.Storage{}
+		err = rows.Scan(
+			&storage.ID,
+			&storage.CreatedAt,
+			&storage.UpdatedAt,
+			&storage.DeletedAt,
+			&storage.Name,
+			&storage.Address)
+		if err != nil {
+			return nil, fmt.Errorf("can't convert from rows: %s", err)
+		}
+		storages = append(storages, storage)
+	}
+	return storages, nil
+}
+
+func (s *Storage) GetStorageByID(id int64) (*models.Storage, error) {
+	rows, err := s.db.Query(`select * from storages where id = $1`, id)
+	if err != nil {
+		return nil, fmt.Errorf("can't select from storages: %s", err)
+	}
+	defer rows.Close()
+
+	storages := make([]models.Storage, 0)
+	for rows.Next() {
+		storage := models.Storage{}
+		err = rows.Scan(
+			&storage.ID,
+			&storage.CreatedAt,
+			&storage.UpdatedAt,
+			&storage.DeletedAt,
+			&storage.Name,
+			&storage.Address)
+		if err != nil {
+			return nil, fmt.Errorf("can't convert from rows: %s", err)
+		}
+		storages = append(storages, storage)
+	}
+	if len(storages) == 0 {
+		return nil, nil
+	}
+	return &(storages[0]), nil
+}
+
+const (
+	OrderResultError = iota
+	OrderResultNotInStock
+	OrderResultSuccess
+)
+
+func (s *Storage) CreateOrder(ctx context.Context, order *models.Order) (int, error) {
+	tx, err := s.db.BeginTx(ctx, &sql.TxOptions{ReadOnly: false, Isolation: sql.LevelDefault})
+	if err != nil {
+		return OrderResultError, fmt.Errorf("can't create transaction")
+	}
+
+	rows, err := tx.Query(`select * from item_to_storage where item_id = $1 and storage_id = $2`, order.ItemID, order.StorageID)
+	if err != nil {
+		return OrderResultError, fmt.Errorf("can't check item to storage: %s", err)
+	}
+	if !rows.Next() {
+		return OrderResultNotInStock, nil
+	}
+	its := &models.ItemToStorage{}
+	err = rows.Scan(&its.ItemID, &its.StorageID, &its.Count)
+	if err != nil {
+		return OrderResultError, fmt.Errorf("can't scan from rows: %s", err)
+	}
+	rows.Close()
+	if its.Count < 1 {
+		return OrderResultNotInStock, nil
+	}
+
+	_, err = tx.Exec(`update item_to_storage set count = count - 1 where item_id = $1 and storage_id = $2`, order.ItemID, order.StorageID)
+	if err != nil {
+		return OrderResultError, fmt.Errorf("can't order from item to storate: %s", err)
+	}
+
+	_, err = tx.Exec(`
+		insert into orders (
+        	created_at, updated_at, deleted_at, user_id, item_id, storage_id, active
+    	) values (now(), now(), null, $1, $2, $3, $4)`,
+		order.UserID, order.ItemID, order.StorageID, order.Active)
+	if err != nil {
+		return OrderResultError, fmt.Errorf("can't create new order: %s", err)
+	}
+	return OrderResultSuccess, nil
 }
