@@ -1,18 +1,25 @@
 package main
 
 import (
-	"fmt"
+	"shop_bot/bot"
+	"shop_bot/log"
+
 	"shop_bot/config"
 )
 
 func main() {
-	fmt.Println("startup...")
-	defer fmt.Println("app closed")
+	log.Info("startup...")
+	defer log.Info("app closed")
 
 	cfg, err := config.FromFile("./config.yaml")
 	if err != nil {
-		fmt.Printf("can't cofigure: %s", err)
+		log.Error("can't configure: %s", err)
 		return
 	}
-	fmt.Println(cfg)
+	log.Info("config: %v", cfg)
+
+	err = bot.RunBot(cfg)
+	if err != nil {
+		log.Error("bot failed", err)
+	}
 }
