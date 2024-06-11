@@ -340,5 +340,8 @@ func (s *Storage) CreateOrder(ctx context.Context, order *models.Order) (int, er
 	if err != nil {
 		return OrderResultError, fmt.Errorf("can't create new order: %s", err)
 	}
+	if err = tx.Commit(); err != nil {
+		return OrderResultError, fmt.Errorf("can't commit new order: %s", err)
+	}
 	return OrderResultSuccess, nil
 }
