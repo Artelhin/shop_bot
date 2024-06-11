@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/gotd/td/telegram/message/markup"
 	"github.com/gotd/td/tg"
+	"math/rand"
 	"regexp"
 	"shop_bot/messages"
 	"shop_bot/models"
@@ -202,11 +203,14 @@ func (b *Bot) orderCallback(ctx context.Context, data string, info *callbackInfo
 		return fmt.Errorf("can't get user from storage: %s", err)
 	}
 
+	code := rand.Int63()
+
 	order := &models.Order{
 		UserID:    user.ID,
 		ItemID:    int64(itemId),
 		StorageID: int64(storageId),
 		Active:    true,
+		Code:      code,
 	}
 	result, err := b.Storage.CreateOrder(ctx, order)
 	if err != nil {
@@ -226,8 +230,8 @@ func (b *Bot) orderCallback(ctx context.Context, data string, info *callbackInfo
 		return nil
 	}
 	if result == storage.OrderResultSuccess {
-		msg := fmt.Sprintf("Ваш заказ будет ждать вас на складе %s по адресу %s в течение суток. Спасибо за использование нашего бота!",
-			store.Name, store.Address.String)
+		msg := fmt.Sprintf("Ваш заказ будет ждать вас на складе %s по адресу %s в течение суток. Код для получения - %d. Спасибо за использование нашего бота!",
+			store.Name, store.Address.String, order.Code)
 		_, err = b.Sender.To(peerUser).Text(ctx, msg)
 		if err != nil {
 			return fmt.Errorf("can't send message: %s", err)

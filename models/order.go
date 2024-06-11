@@ -8,4 +8,5 @@ type Order struct {
 	ItemID    int64 `json:"item_id"`
 	StorageID int64 `json:"storage_id"`
 	Active    bool  `json:"active"`
+	Code      int64 `json:"code"`
 }

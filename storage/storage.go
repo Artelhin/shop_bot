@@ -334,9 +334,9 @@ func (s *Storage) CreateOrder(ctx context.Context, order *models.Order) (int, er
 
 	_, err = tx.Exec(`
 		insert into orders (
-        	created_at, updated_at, deleted_at, user_id, item_id, storage_id, active
-    	) values (now(), now(), null, $1, $2, $3, $4)`,
-		order.UserID, order.ItemID, order.StorageID, order.Active)
+        	created_at, updated_at, deleted_at, user_id, item_id, storage_id, active, code
+    	) values (now(), now(), null, $1, $2, $3, $4, $5)`,
+		order.UserID, order.ItemID, order.StorageID, order.Active, order.Code)
 	if err != nil {
 		return OrderResultError, fmt.Errorf("can't create new order: %s", err)
 	}
@@ -367,7 +367,8 @@ func (s *Storage) DeactivateOrders(ctx context.Context) (int, error) {
 			&order.UserID,
 			&order.ItemID,
 			&order.StorageID,
-			&order.Active)
+			&order.Active,
+			&order.Code)
 		if err != nil {
 			return 0, fmt.Errorf("can't scan from rows: %s", err)
 		}
@@ -388,7 +389,7 @@ func (s *Storage) DeactivateOrders(ctx context.Context) (int, error) {
 	}
 	err = tx.Commit()
 	if err != nil {
-		return 0, fmt.Errorf("can't commit tx: %s, err")
+		return 0, fmt.Errorf("can't commit tx: %s", err)
 	}
 	return len(orders), nil
 }
