@@ -23,6 +23,13 @@ type callbackInfo struct {
 func (b *Bot) callbackMapping(ctx context.Context, data string, info *callbackInfo) error {
 	log.Info("got callback data=%s", data)
 
+	_, err := b.TelegramAPI.MessagesSetBotCallbackAnswer(ctx, &tg.MessagesSetBotCallbackAnswerRequest{
+		QueryID: info.update.QueryID,
+	})
+	if err != nil {
+		log.Error("can't send answer to callback request", err)
+	}
+
 	if match, _ := regexp.MatchString("showcat*", data); match {
 		return b.showCategoryCallback(ctx, data, info)
 	}

@@ -31,6 +31,9 @@ func RunBot(cfg *config.Config) (err error) {
 		log.Error("can't create new storage", err)
 	}
 
+	log.Info("starting order deactivation worker...")
+	go b.orderDeactivationWorker()
+
 	log.Info("creating telegram tools for bot...")
 	dispatcher := tg.NewUpdateDispatcher()
 	opts := telegram.Options{

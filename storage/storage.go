@@ -345,3 +345,50 @@ func (s *Storage) CreateOrder(ctx context.Context, order *models.Order) (int, er
 	}
 	return OrderResultSuccess, nil
 }
+
+func (s *Storage) DeactivateOrders(ctx context.Context) (int, error) {
+	tx, err := s.db.BeginTx(ctx, &sql.TxOptions{ReadOnly: false, Isolation: sql.LevelDefault})
+	if err != nil {
+		return 0, fmt.Errorf("can't create tx: %s", err)
+	}
+
+	rows, err := tx.Query(`select * from orders where age(created_at, now()) > interval '24' hour and active`)
+	if err != nil {
+		return 0, fmt.Errorf("can't select orders for deactivation: %s", err)
+	}
+	orders := make([]models.Order, 0)
+	for rows.Next() {
+		order := models.Order{}
+		err = rows.Scan(
+			&order.ID,
+			&order.CreatedAt,
+			&order.UpdatedAt,
+			&order.DeletedAt,
+			&order.UserID,
+			&order.ItemID,
+			&order.StorageID,
+			&order.Active)
+		if err != nil {
+			return 0, fmt.Errorf("can't scan from rows: %s", err)
+		}
+		orders = append(orders, order)
+	}
+	rows.Close()
+
+	for i := range orders {
+		_, err := tx.Exec(`update item_to_storage set count = count + 1 where item_id = $1 and storage_id = $2`,
+			orders[i].ItemID, orders[i].StorageID)
+		if err != nil {
+			return 0, fmt.Errorf("can't add item back to stock: %s", err)
+		}
+		_, err = tx.Exec(`update orders set active = false where id = $1`, orders[i].ID)
+		if err != nil {
+			return 0, fmt.Errorf("can't deactivate order: %s", err)
+		}
+	}
+	err = tx.Commit()
+	if err != nil {
+		return 0, fmt.Errorf("can't commit tx: %s, err")
+	}
+	return len(orders), nil
+}
