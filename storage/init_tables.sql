@@ -1,3 +1,10 @@
+drop table users;
+drop table categories;
+drop table items;
+drop table storages;
+drop table item_to_storage;
+drop table orders;
+
 create table users (
                        id bigint primary key,
                        created_at timestamp,
