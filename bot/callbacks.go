@@ -130,7 +130,7 @@ func (b *Bot) showItemCallback(ctx context.Context, data string, info *callbackI
 
 	msgParts := []string{item.Name}
 	if item.Description.Valid && item.Description.String != "" {
-		msgParts = append(msgParts, item.Description.String)
+		msgParts = append(msgParts, "\n"+item.Description.String)
 	}
 	if len(storages) == 0 {
 		msgParts = append(msgParts, "\nНет в наличии")
@@ -167,7 +167,7 @@ func (b *Bot) showItemCallback(ctx context.Context, data string, info *callbackI
 	}
 
 	if len(rows) == 0 {
-		_, err = b.Sender.To(peerUser).Text(ctx, strings.Join(msgParts, "\n\n"))
+		_, err = b.Sender.To(peerUser).Text(ctx, strings.Join(msgParts, "\n"))
 		if err != nil {
 			return fmt.Errorf("can't answer: %s", err)
 		}

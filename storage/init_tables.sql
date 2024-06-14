@@ -52,5 +52,5 @@ create table orders (
     item_id int,
     storage_id int,
     active bool,
-    code int
+    code bigint
 );
