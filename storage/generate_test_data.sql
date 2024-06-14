@@ -21,6 +21,27 @@ alter sequence items_id_seq restart;
 insert into items (
     created_at, updated_at, deleted_at, name, description, category_id, image
 ) values
-      (now(), now(), null, 'Samsung A70', '5 y.o. device', 5, null),
-      (now(), now(), null, 'Samsung S24 Ultra', 'this year device' ||
-                                                '+nice camera', 5, null);
+      (now(), now(), null, 'Samsung A70', 'Samsung Galaxy A70 получился одним из самых красивых смартфонов на рынке, но в то же самое время его корпус непрактичный. Он имеет глянцевое покрытие, которое быстро теряет блеск из-за многочисленных отпечатков пальцев на поверхности.', 5, null),
+      (now(), now(), null, 'Samsung S24 Ultra', 'Galaxy S24 Ultra с инновационной 200 МП камерой и встроенным искусственным интеллектом устанавливает новый стандарт качества съемки. Новый процессор ProVisual распознает объекты, улучшает цветовой тон, уменьшая шум и подчеркивая детали. Наслаждайтесь каждым снимком, снятым на Galaxy S24 Ultra.', 5, null);
+
+truncate table storages;
+
+alter sequence storages_id_seq restart;
+
+insert into storages (
+    created_at, updated_at, deleted_at, name, address
+) values
+      (now(), now(), null, 'Авиапарк', 'м. Авиапарк'),
+      (now(), now(), null, 'МТС Первомайская', 'Сиреневый б-р 62');
+
+truncate table item_to_storage;
+
+insert into item_to_storage (
+    item_id, storage_id, count
+) values
+      (1, 1, 5),
+      (1, 2, 4);
+
+truncate table orders;
+
+alter sequence orders_id_seq restart;
