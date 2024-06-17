@@ -17,7 +17,7 @@ type messageInfo struct {
 }
 
 func (b *Bot) messageMapping(ctx context.Context, info *messageInfo) error {
-	err := b.userInfoCollector(ctx, info)
+	err := b.userInfoCollector(info)
 	if err != nil {
 		return fmt.Errorf("can't collect user info: %s", err)
 	}
