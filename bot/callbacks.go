@@ -40,6 +40,9 @@ func (b *Bot) callbackMapping(ctx context.Context, data string, info *callbackIn
 	if match, _ := regexp.MatchString("order*", data); match {
 		return b.orderCallback(ctx, data, info)
 	}
+	if match, _ := regexp.MatchString("cancel*", data); match {
+		return b.cancelOrderCallback(ctx, data, info)
+	}
 
 	return nil
 }
@@ -189,7 +192,7 @@ func (b *Bot) orderCallback(ctx context.Context, data string, info *callbackInfo
 	if err != nil {
 		return fmt.Errorf("can't parse id for item: %s", err)
 	}
-	storageId, err := strconv.ParseUint(ids[0], 10, 64)
+	storageId, err := strconv.ParseUint(ids[1], 10, 64)
 	if err != nil {
 		return fmt.Errorf("can't parse id for storage: %s", err)
 	}
@@ -230,12 +233,40 @@ func (b *Bot) orderCallback(ctx context.Context, data string, info *callbackInfo
 		return nil
 	}
 	if result == storage.OrderResultSuccess {
-		msg := fmt.Sprintf("Ваш заказ будет ждать вас на складе %s по адресу %s в течение суток. Код для получения - %d. Спасибо за использование нашего бота!",
+		msg := fmt.Sprintf("Ваш заказ будет ждать вас на складе %s по адресу %s в течение суток.\n\n Код для получения - %d. \n\nМенеджер вскоре свяжется с Вами в Telegram для подтверждения бронирования. Спасибо за использование нашего бота!",
 			store.Name, store.Address.String, order.Code)
 		_, err = b.Sender.To(peerUser).Text(ctx, msg)
 		if err != nil {
 			return fmt.Errorf("can't send message: %s", err)
 		}
 	}
+	return nil
+}
+
+func (b *Bot) cancelOrderCallback(ctx context.Context, data string, info *callbackInfo) error {
+	strid := strings.TrimPrefix(data, "cancel")
+	id, err := strconv.ParseUint(strid, 10, 64)
+	if err != nil {
+		return fmt.Errorf("can't parse id for order: %s", err)
+	}
+
+	err = b.Storage.CancelOrderByID(ctx, int64(id))
+	if err != nil {
+		return fmt.Errorf("can't cancel order: %s", err)
+	}
+
+	user, err := b.Storage.GetUserByID(info.update.UserID)
+	if err != nil {
+		return fmt.Errorf("can't get user from storage: %s", err)
+	}
+	peerUser := &tg.InputPeerUser{
+		UserID:     user.ID,
+		AccessHash: *user.AccessHash,
+	}
+	_, err = b.Sender.To(peerUser).Text(ctx, messages.OrderCancelled)
+	if err != nil {
+		return fmt.Errorf("can't send message: %s", err)
+	}
+
 	return nil
 }

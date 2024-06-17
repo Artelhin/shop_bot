@@ -34,6 +34,9 @@ func (b *Bot) messageMapping(ctx context.Context, info *messageInfo) error {
 	if match, _ := regexp.MatchString("/catalog", text); match {
 		return b.CatalogHandler(ctx, info)
 	}
+	if match, _ := regexp.MatchString("/myorders", text); match {
+		return b.MyOrdersHandler(ctx, info)
+	}
 
 	_, err = b.Sender.Answer(info.e, info.update).Text(ctx, messages.UnknownCommand)
 	if err != nil {
@@ -118,6 +121,53 @@ func (b *Bot) CatalogHandler(ctx context.Context, info *messageInfo) error {
 	_, err = b.Sender.Answer(info.e, info.update).Markup(markup.InlineKeyboard(rows...)).Text(ctx, messages.CatalogSent)
 	if err != nil {
 		return fmt.Errorf("can't answer: %s", err)
+	}
+	return nil
+}
+
+func (b *Bot) MyOrdersHandler(ctx context.Context, info *messageInfo) error {
+	msg := info.update.Message.(*tg.Message)
+	peerUser, ok := msg.PeerID.(*tg.PeerUser)
+	if !ok {
+		return fmt.Errorf("can't cast peerID to peerUser")
+	}
+	user := info.e.Users[peerUser.UserID]
+	orders, err := b.Storage.GetActiveOrdersByUserID(user.ID)
+	if err != nil {
+		return fmt.Errorf("can't get active orders for user: %s", err)
+	}
+	if len(orders) == 0 {
+		_, err = b.Sender.Answer(info.e, info.update).Text(ctx, messages.NoActiveOrders)
+		if err != nil {
+			return fmt.Errorf("can't answer: %s", err)
+		}
+		return nil
+	}
+	for _, order := range orders {
+		storage, err := b.Storage.GetStorageByID(order.StorageID)
+		if err != nil {
+			return fmt.Errorf("can't get storage for order: %s", err)
+		}
+		item, err := b.Storage.GetItemByID(order.ItemID)
+		if err != nil {
+			return fmt.Errorf("can't get item for order: %s", err)
+		}
+		msgText := "Вы забронировали %s\n\nВ пункте выдачи %s по адресу %s\n\nКод получения: %d"
+		msgText = fmt.Sprintf(msgText, item.Name, storage.Name, storage.Address.String, order.Code)
+
+		rows := []tg.KeyboardButtonRow{{
+			Buttons: []tg.KeyboardButtonClass{
+				&tg.KeyboardButtonCallback{
+					Text: "Отменить бронь",
+					Data: []byte(fmt.Sprintf("cancel%d", order.ID)),
+				},
+			},
+		},
+		}
+		_, err = b.Sender.Answer(info.e, info.update).Markup(markup.InlineKeyboard(rows...)).Text(ctx, msgText)
+		if err != nil {
+			return fmt.Errorf("can't answer: %s", err)
+		}
 	}
 	return nil
 }

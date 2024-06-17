@@ -393,3 +393,84 @@ func (s *Storage) DeactivateOrders(ctx context.Context) (int, error) {
 	}
 	return len(orders), nil
 }
+
+func (s *Storage) GetActiveOrdersByUserID(id int64) ([]models.Order, error) {
+	rows, err := s.db.Query(`select * from orders where user_id = $1 and active`, id)
+	if err != nil {
+		return nil, fmt.Errorf("can't select orders for user: %s", err)
+	}
+	orders := make([]models.Order, 0)
+	for rows.Next() {
+		order := models.Order{}
+		err = rows.Scan(
+			&order.ID,
+			&order.CreatedAt,
+			&order.UpdatedAt,
+			&order.DeletedAt,
+			&order.UserID,
+			&order.ItemID,
+			&order.StorageID,
+			&order.Active,
+			&order.Code)
+		if err != nil {
+			return nil, fmt.Errorf("can't scan from rows: %s", err)
+		}
+		orders = append(orders, order)
+	}
+	rows.Close()
+	return orders, nil
+}
+
+func (s *Storage) CancelOrderByID(ctx context.Context, id int64) error {
+	tx, err := s.db.BeginTx(ctx, &sql.TxOptions{ReadOnly: false, Isolation: sql.LevelDefault})
+	if err != nil {
+		return fmt.Errorf("can't create tx: %s", err)
+	}
+
+	rows, err := s.db.Query(`select * from orders where id = $1`, id)
+	if err != nil {
+		return fmt.Errorf("can't select order: %s", err)
+	}
+	order := models.Order{}
+	for rows.Next() {
+		err = rows.Scan(
+			&order.ID,
+			&order.CreatedAt,
+			&order.UpdatedAt,
+			&order.DeletedAt,
+			&order.UserID,
+			&order.ItemID,
+			&order.StorageID,
+			&order.Active,
+			&order.Code)
+		if err != nil {
+			return fmt.Errorf("can't scan from rows: %s", err)
+		}
+	}
+	rows.Close()
+
+	if !order.Active {
+		err = tx.Commit()
+		if err != nil {
+			return fmt.Errorf("can't commit empty order cancellation: %s", err)
+		}
+		return nil
+	}
+
+	_, err = tx.Exec(`update item_to_storage set count = count + 1 where item_id = $1 and storage_id = $2`,
+		order.ItemID, order.StorageID)
+	if err != nil {
+		return fmt.Errorf("can't add item back to stock: %s", err)
+	}
+	_, err = tx.Exec(`update orders set active = false where id = $1`, order.ID)
+	if err != nil {
+		return fmt.Errorf("can't deactivate order: %s", err)
+	}
+
+	err = tx.Commit()
+	if err != nil {
+		return fmt.Errorf("can't commit order cancellation: %s", err)
+	}
+
+	return nil
+}
