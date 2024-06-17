@@ -46,7 +46,7 @@ func (b *Bot) messageMapping(ctx context.Context, info *messageInfo) error {
 	return nil
 }
 
-func (b *Bot) userInfoCollector(ctx context.Context, info *messageInfo) error {
+func (b *Bot) userInfoCollector(info *messageInfo) error {
 	msg := info.update.Message.(*tg.Message)
 	peerUser, ok := msg.PeerID.(*tg.PeerUser)
 	if !ok {
@@ -71,7 +71,7 @@ func (b *Bot) userInfoCollector(ctx context.Context, info *messageInfo) error {
 			userFromDB.Username != userModel.Username {
 			err = b.Storage.UpdateUser(userModel)
 			if err != nil {
-				return fmt.Errorf("can't update user info: %s")
+				return fmt.Errorf("can't update user info: %s", err)
 			}
 		}
 	} else {
