@@ -41,7 +41,8 @@ insert into item_to_storage (
     item_id, storage_id, count
 ) values
       (1, 1, 5),
-      (1, 2, 4);
+      (1, 2, 4),
+      (3, 1, 10);
 
 truncate table orders;
 
