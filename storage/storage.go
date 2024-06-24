@@ -220,6 +220,14 @@ func (s *Storage) GetItemByID(id int64) (*models.Item, error) {
 	return &(items[0]), nil
 }
 
+func (s *Storage) UpdateItem(item *models.Item) error {
+	_, err := s.db.Exec(`update items set updated_at = now(), image = $1 where id = $2`, item.Image, item.ID)
+	if err != nil {
+		return fmt.Errorf("can't exec update query: %s", err)
+	}
+	return nil
+}
+
 func (s *Storage) GetItemsInStoresByItemID(id int64) ([]models.ItemToStorage, error) {
 	rows, err := s.db.Query(`select * from item_to_storage where item_id = $1`, id)
 	if err != nil {
@@ -382,7 +390,7 @@ func (s *Storage) DeactivateOrders(ctx context.Context) (int, error) {
 		if err != nil {
 			return 0, fmt.Errorf("can't add item back to stock: %s", err)
 		}
-		_, err = tx.Exec(`update orders set active = false where id = $1`, orders[i].ID)
+		_, err = tx.Exec(`update orders set updated_at = now(), active = false where id = $1`, orders[i].ID)
 		if err != nil {
 			return 0, fmt.Errorf("can't deactivate order: %s", err)
 		}

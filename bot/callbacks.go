@@ -2,8 +2,13 @@ package bot
 
 import (
 	"context"
+	"encoding/json"
+	"errors"
 	"fmt"
+	"github.com/gotd/td/telegram/message"
 	"github.com/gotd/td/telegram/message/markup"
+	"github.com/gotd/td/telegram/message/styling"
+	"github.com/gotd/td/telegram/uploader"
 	"github.com/gotd/td/tg"
 	"math/rand"
 	"regexp"
@@ -126,6 +131,16 @@ func (b *Bot) showItemCallback(ctx context.Context, data string, info *callbackI
 		return fmt.Errorf("can't get item: %s", err)
 	}
 
+	image := new(models.Image)
+	var hasImage bool
+	if len(item.Image) > 0 {
+		hasImage = true
+		err = json.Unmarshal(item.Image, image)
+		if err != nil {
+			return fmt.Errorf("can't unmarshal image data: %s", err)
+		}
+	}
+
 	storages, err := b.Storage.GetStoragesForItemID(item.ID)
 	if err != nil {
 		return fmt.Errorf("can't get storages for item: %s", err)
@@ -169,6 +184,40 @@ func (b *Bot) showItemCallback(ctx context.Context, data string, info *callbackI
 		AccessHash: *user.AccessHash,
 	}
 
+	if b.UserIsAdmin(user.ID) {
+		b.LastItemInChat[user.ID] = item.ID
+	}
+
+	if hasImage {
+		u := uploader.NewUploader(b.TelegramClient.API())
+		var ext string
+		switch image.MimeType {
+		case "image/jpeg":
+			ext = "jpeg"
+		case "image/png":
+			ext = "png"
+		default:
+			return errors.New("unknown mime type of image")
+		}
+		upload, err := u.FromBytes(ctx, fmt.Sprintf("%d.%s", item.ID, ext), image.Bytes)
+		if err != nil {
+			return fmt.Errorf("can't upload image data: %s", err)
+		}
+		document := message.UploadedPhoto(upload, styling.Plain(strings.Join(msgParts, "\n")))
+		if len(rows) == 0 {
+			_, err = b.Sender.To(peerUser).Media(ctx, document)
+			if err != nil {
+				return fmt.Errorf("can't answer: %s", err)
+			}
+		} else {
+			_, err = b.Sender.To(peerUser).Markup(markup.InlineKeyboard(rows...)).Media(ctx, document)
+			if err != nil {
+				return fmt.Errorf("can't answer: %s", err)
+			}
+		}
+		return nil
+	}
+
 	if len(rows) == 0 {
 		_, err = b.Sender.To(peerUser).Text(ctx, strings.Join(msgParts, "\n"))
 		if err != nil {
@@ -180,7 +229,6 @@ func (b *Bot) showItemCallback(ctx context.Context, data string, info *callbackI
 			return fmt.Errorf("can't answer: %s", err)
 		}
 	}
-
 	return nil
 }
 

@@ -1,8 +1,12 @@
 package bot
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
+	"errors"
 	"fmt"
+	"github.com/gotd/td/telegram/downloader"
 	"github.com/gotd/td/telegram/message/markup"
 	"github.com/gotd/td/tg"
 	"regexp"
@@ -36,6 +40,10 @@ func (b *Bot) messageMapping(ctx context.Context, info *messageInfo) error {
 	}
 	if match, _ := regexp.MatchString("/myorders", text); match {
 		return b.MyOrdersHandler(ctx, info)
+	}
+
+	if b.containsImageAndUserIsAdmin(info) {
+		return b.downloadImageForLastItem(ctx, info)
 	}
 
 	_, err = b.Sender.Answer(info.e, info.update).Text(ctx, messages.UnknownCommand)
@@ -168,6 +176,90 @@ func (b *Bot) MyOrdersHandler(ctx context.Context, info *messageInfo) error {
 		if err != nil {
 			return fmt.Errorf("can't answer: %s", err)
 		}
+	}
+	return nil
+}
+
+func (b *Bot) containsImageAndUserIsAdmin(info *messageInfo) bool {
+	msg := info.update.Message.(*tg.Message)
+	_, ok := msg.Media.(*tg.MessageMediaPhoto)
+	peerUser := msg.PeerID.(*tg.PeerUser)
+	var isAdmin bool
+	for _, id := range b.Config.Admins {
+		if peerUser.UserID == id {
+			isAdmin = true
+			break
+		}
+	}
+	return ok && isAdmin
+}
+
+func (b *Bot) downloadImageForLastItem(ctx context.Context, info *messageInfo) error {
+	msg := info.update.Message.(*tg.Message)
+	media := msg.Media.(*tg.MessageMediaPhoto)
+	photo := media.Photo.(*tg.Photo)
+	loc := &tg.InputPhotoFileLocation{
+		ID:            photo.ID,
+		AccessHash:    photo.AccessHash,
+		FileReference: photo.FileReference,
+	}
+	for i := range photo.Sizes {
+		if s, ok := photo.Sizes[i].(*tg.PhotoSizeProgressive); ok {
+			loc.ThumbSize = s.Type
+		}
+	}
+	if loc.ThumbSize == "" {
+		return errors.New("can't find progressive size for photo")
+	}
+
+	loader := downloader.NewDownloader()
+	api := b.TelegramClient.API()
+	photoData := bytes.NewBuffer(make([]byte, 0))
+	fileType, err := loader.Download(api, loc).Stream(ctx, photoData)
+	if err != nil {
+		return fmt.Errorf("can't download file: %s", err)
+	}
+	log.Info("image downloaded")
+
+	image := models.Image{
+		Bytes: photoData.Bytes(),
+	}
+
+	switch fileType.(type) {
+	case *tg.StorageFileJpeg:
+		image.MimeType = "image/jpeg"
+	case *tg.StorageFilePng:
+		image.MimeType = "image/png"
+	case *tg.StorageFileUnknown:
+		return errors.New("unknown image type")
+	}
+
+	imageData, err := json.Marshal(image)
+	if err != nil {
+		return fmt.Errorf("can't marshal image data: %s", err)
+	}
+
+	peerUser := msg.PeerID.(*tg.PeerUser)
+	userId := peerUser.UserID
+
+	itemId, ok := b.LastItemInChat[userId]
+	if !ok {
+		_, err = b.Sender.Answer(info.e, info.update).Text(ctx, messages.NewImageSaved)
+		if err != nil {
+			return fmt.Errorf("can't reply: %s", err)
+		}
+		return nil
+	}
+	item, err := b.Storage.GetItemByID(itemId)
+	item.Image = imageData
+	err = b.Storage.UpdateItem(item)
+	if err != nil {
+		return fmt.Errorf("can't update item with a new image: %s", err)
+	}
+
+	_, err = b.Sender.Answer(info.e, info.update).Text(ctx, messages.NewImageSaved)
+	if err != nil {
+		return fmt.Errorf("can't reply: %s", err)
 	}
 	return nil
 }

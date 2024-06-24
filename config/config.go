@@ -9,10 +9,11 @@ import (
 )
 
 type Config struct {
-	ApiHash  string `yaml:"app_hash"`
-	ApiID    string `yaml:"api_id"`
-	BotToken string `yaml:"bot_token"`
-	DB       string `yaml:"db"`
+	ApiHash  string  `yaml:"app_hash"`
+	ApiID    string  `yaml:"api_id"`
+	BotToken string  `yaml:"bot_token"`
+	DB       string  `yaml:"db"`
+	Admins   []int64 `yaml:"admins"`
 }
 
 func FromFile(path string) (*Config, error) {

@@ -17,13 +17,26 @@ type Bot struct {
 
 	Storage *storage.Storage
 
-	TelegramAPI *tg.Client
-	Sender      *message.Sender
+	TelegramAPI    *tg.Client
+	TelegramClient *telegram.Client
+	Sender         *message.Sender
+
+	LastItemInChat map[int64]int64
+}
+
+func (b *Bot) UserIsAdmin(id int64) bool {
+	for _, adminId := range b.Config.Admins {
+		if id == adminId {
+			return true
+		}
+	}
+	return false
 }
 
 func RunBot(cfg *config.Config) (err error) {
 	b := &Bot{
-		Config: cfg,
+		Config:         cfg,
+		LastItemInChat: make(map[int64]int64),
 	}
 
 	b.Storage, err = storage.NewStorage(b.Config.DB)
@@ -49,6 +62,7 @@ func RunBot(cfg *config.Config) (err error) {
 	log.Info("starting bot...")
 	if err = telegram.BotFromEnvironment(context.Background(), opts, func(ctx context.Context, client *telegram.Client) error {
 		b.TelegramAPI = tg.NewClient(client)
+		b.TelegramClient = client
 		b.Sender = message.NewSender(b.TelegramAPI)
 
 		log.Info("setting up callback handlers...")
